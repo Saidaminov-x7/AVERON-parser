@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.browser-profile/
+data/*.json
+!data/.gitkeep
+

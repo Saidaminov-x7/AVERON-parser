@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AVERON Finder — поиск товаров на 1688</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <header><span class="brand">AVERON</span><span class="pill">1688 Finder</span></header>
+    <section class="hero">
+      <p class="eyebrow">AI PRODUCT DISCOVERY</p>
+      <h1>Найдите нужный товар<br><em>на языке закупщика.</em></h1>
+      <p class="lead">Опишите товар по-русски или по-узбекски. Сервис подготовит китайский запрос, найдёт предложения на 1688 и сохранит их для ручной проверки.</p>
+      <form id="search-form">
+        <textarea id="query" required minlength="2" placeholder="Опишите товар или вставьте ссылку 1688: мужская чёрная хлопковая худи oversize"></textarea>
+        <div class="form-row">
+          <label>Цена от, ¥<input id="min-price" type="number" min="0" step="0.1" /></label>
+          <label>Цена до, ¥<input id="max-price" type="number" min="0" step="0.1" /></label>
+          <button type="submit">Найти товары</button>
+        </div>
+      </form>
+      <div class="session"><button id="open-session" class="secondary">Открыть 1688 для входа</button><span>Нужно только если 1688 запросит авторизацию.</span></div>
+    </section>
+    <section id="status" class="status hidden"></section>
+    <section id="intent" class="intent hidden"></section>
+    <section id="results" class="grid"></section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
