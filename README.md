@@ -47,9 +47,11 @@ AI_MODEL=qwen2.5:7b
 
 - `GET /api/health` — состояние сервиса.
 - `POST /api/search` — поиск: `{ "query": "черная мужская худи", "minPriceCny": 20, "maxPriceCny": 80, "limit": 24 }`.
-- `POST /api/product` — импорт конкретной карточки: `{ "url": "https://detail.1688.com/offer/..." }`.
+- `POST /api/product` — импорт выбранной карточки: `{ "url": "https://detail.1688.com/offer/..." }`; при настроенных `BACKEND_API_URL` и `PARSER_IMPORT_TOKEN` отправляет версионированный DTO в очередь Backend `PENDING_REVIEW`.
 - `GET /api/search/:id` — сохранённый результат.
 - `POST /api/session/open` — открыть 1688 для ручного входа.
+
+Для импорта установите `BACKEND_API_URL`, `PARSER_IMPORT_TOKEN` (одинаковый сильный случайный токен только в Parser и Backend) и при необходимости `BACKEND_IMPORT_TIMEOUT_MS`. Production `BACKEND_API_URL` обязан использовать HTTPS. Токен не передаётся в браузер; Parser добавляет его server-to-server в bearer header. Отсутствующая конфигурация приводит к безопасному `503 PARSER_IMPORT_NOT_CONFIGURED`, а Backend повторно проверяет свои provider flags.
 
 ## Проверка
 
@@ -64,4 +66,4 @@ npm run build
 - Разметка 1688 меняется; селекторы вынесены в отдельный адаптер `src/adapter-1688.ts`.
 - Некоторые аккаунты/регионы получают обязательную проверку 1688.
 - Цена на карточке может быть диапазоном или зависеть от количества; перед импортом её обязан проверить администратор.
-- Следующий этап интеграции — отправка выбранной карточки в импорт-очередь основного AVERON backend.
+- Поиск лишь отображает кандидатов; только явный запрос конкретной карточки отправляет её в Backend. Повторная отправка сохраняет единственную запись `(provider, sourceProductId)` и не переоткрывает уже проверенную запись.

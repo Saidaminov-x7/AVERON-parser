@@ -7,6 +7,7 @@ import { SearchRequestSchema } from "./domain.js";
 import { Adapter1688 } from "./adapter-1688.js";
 import { getSavedSearchResult, SearchService } from "./search-service.js";
 import { ProductSourceAccessError, ProductSourceProviderRegistry } from "./product-source-provider.js";
+import { ParserBackendImportClient } from "./backend-import.js";
 
 const app = Fastify({ logger: true, bodyLimit: 64 * 1024 });
 const providerRegistry = new ProductSourceProviderRegistry(config.productSourceFeatureFlags, {
@@ -73,14 +74,20 @@ app.post("/api/product", async (request, reply) => {
   try {
     const body = request.body as { url?: string };
     if (!body?.url) return reply.code(400).send({ error: "INVALID_REQUEST", message: "Укажите URL товара 1688" });
-    return await getSearchService().importUrl(body.url);
+    const result = await getSearchService().importUrl(body.url);
+    const product = result.products[0];
+    if (!product || product.source !== "1688") throw new Error("INVALID_1688_IMPORT_RESULT");
+    const imported = await new ParserBackendImportClient().submit(product);
+    return { ...result, backendImport: imported };
   } catch (error) {
     const accessError = sourceAccessError(error, reply);
     if (accessError) return accessError;
     if (error instanceof Error && error.message === "UNSUPPORTED_SOURCE_URL") return reply.code(400).send({ error: "UNSUPPORTED_SOURCE", message: "Сейчас поддерживаются ссылки 1688.com" });
     if (error instanceof Error && error.message === "1688_REQUESTS_LOGIN") return reply.code(409).send({ error: "AUTH_REQUIRED", message: "1688 запросил вход. Установите HEADLESS=false, откройте сессию и войдите вручную." });
     if (error instanceof Error && error.message === "1688_UNAVAILABLE") return reply.code(502).send({ error: "SOURCE_UNAVAILABLE", message: "1688 недоступен из текущей сети." });
-    return reply.code(502).send({ error: "IMPORT_FAILED", message: error instanceof Error ? error.message : "Карточка не импортирована" });
+    const code = error instanceof Error && /^[A-Z0-9_]{1,64}$/.test(error.message) ? error.message : "IMPORT_FAILED";
+    const status = code === "PARSER_IMPORT_NOT_CONFIGURED" ? 503 : code === "FEATURE_DISABLED" ? 403 : 502;
+    return reply.code(status).send({ error: code, message: "Карточка не передана в очередь проверки." });
   }
 });
 

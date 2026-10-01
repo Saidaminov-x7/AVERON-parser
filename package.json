@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test test/query-planner.test.ts test/product-source-provider.test.ts"
+    "test": "node --import tsx --test test/query-planner.test.ts test/product-source-provider.test.ts test/backend-import.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.2",

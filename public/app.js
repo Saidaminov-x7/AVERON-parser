@@ -21,7 +21,7 @@ form.addEventListener("submit", async (event) => {
     if (!response.ok) throw new Error(data.message || "Поиск не выполнен");
     statusBox.className = "status hidden";
     intentBox.className = "intent";
-    intentBox.innerHTML = data.intent.chineseQuery ? `<strong>Запрос для 1688:</strong> ${escapeHtml(data.intent.chineseQuery)} · <span>${data.intent.planner === "ai" ? "AI" : "встроенный словарь"}</span><br><small>${escapeHtml(data.intent.explanation)}</small>` : `<strong>Карточка 1688 импортирована по ссылке</strong>`;
+    intentBox.innerHTML = data.intent.chineseQuery ? `<strong>Запрос для 1688:</strong> ${escapeHtml(data.intent.chineseQuery)} · <span>${data.intent.planner === "ai" ? "AI" : "встроенный словарь"}</span><br><small>${escapeHtml(data.intent.explanation)}</small>` : `<strong>Карточка 1688 передана в очередь проверки</strong> · ${escapeHtml(data.backendImport?.result || "")}`;
     if (!data.products.length) showStatus(data.warnings?.[0] || "Товары не найдены. Попробуйте другой запрос.");
     results.innerHTML = data.products.map(card).join("");
   } catch (error) { showStatus(error.message, true); }
