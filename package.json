@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test test/query-planner.test.ts test/product-source-provider.test.ts test/backend-import.test.ts test/external-url.test.ts"
+    "test": "node --import tsx --test test/query-planner.test.ts test/product-source-provider.test.ts test/backend-import.test.ts test/external-url.test.ts",
+    "lint": "eslint src"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
@@ -18,7 +19,10 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "eslint": "^10.0.0",
+    "globals": "^16.0.0",
     "@types/node": "^20.19.17",
+    "typescript-eslint": "^8.0.0",
     "tsx": "^4.23.1",
     "typescript": "^5.9.2"
   },
