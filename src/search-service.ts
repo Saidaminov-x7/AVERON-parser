@@ -2,11 +2,17 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
-import type { ProductSourceAdapter, SearchRequest, SearchResult } from "./domain.js";
+import type { ProductSourceProvider, SearchRequest, SearchResult } from "./domain.js";
 import { QueryPlanner } from "./query-planner.js";
 
+export async function getSavedSearchResult(id: string): Promise<SearchResult | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  try { return JSON.parse(await readFile(path.join(config.dataDir, `${id}.json`), "utf8")) as SearchResult; }
+  catch { return null; }
+}
+
 export class SearchService {
-  constructor(private readonly adapter: ProductSourceAdapter, private readonly planner = new QueryPlanner()) {}
+  constructor(private readonly adapter: ProductSourceProvider, private readonly planner = new QueryPlanner()) {}
 
   async search(request: SearchRequest): Promise<SearchResult> {
     const intent = await this.planner.plan(request);
@@ -21,9 +27,7 @@ export class SearchService {
   }
 
   async get(id: string): Promise<SearchResult | null> {
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-    try { return JSON.parse(await readFile(path.join(config.dataDir, `${id}.json`), "utf8")) as SearchResult; }
-    catch { return null; }
+    return getSavedSearchResult(id);
   }
 
   async importUrl(url: string): Promise<SearchResult> {

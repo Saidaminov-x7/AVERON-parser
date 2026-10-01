@@ -1,6 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
 import { z } from "zod";
+import { parseProductSourceFeatureFlags } from "./feature-flags.js";
 
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4318),
@@ -28,6 +29,7 @@ export const config = {
   aiBaseUrl: env.AI_BASE_URL || undefined,
   aiApiKey: env.AI_API_KEY,
   aiModel: env.AI_MODEL,
+  productSourceFeatureFlags: parseProductSourceFeatureFlags(),
   dataDir: path.resolve("data"),
   publicDir: path.resolve("public"),
 };

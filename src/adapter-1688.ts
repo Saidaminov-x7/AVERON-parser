@@ -1,6 +1,6 @@
 import { chromium, type BrowserContext, type Locator, type Page } from "playwright";
 import { config } from "./config.js";
-import type { ProductCandidate, ProductSourceAdapter, SearchIntent } from "./domain.js";
+import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "./domain.js";
 
 const CARD_SELECTORS = [
   "[data-offer-id]", ".offer-list-row .offer-item", ".space-offer-card-box", ".search-offer-wrapper",
@@ -17,7 +17,7 @@ function productIdFrom(url: string, fallback: string): string {
   return url.match(/offer\/(\d+)\.html/)?.[1] ?? fallback;
 }
 
-export class Adapter1688 implements ProductSourceAdapter {
+export class Adapter1688 implements ProductSourceProvider<"1688"> {
   readonly source = "1688" as const;
   private context?: BrowserContext;
   private contextHeadless?: boolean;
@@ -30,7 +30,7 @@ export class Adapter1688 implements ProductSourceAdapter {
     return page.url();
   }
 
-  async getProduct(url: string): Promise<ProductCandidate> {
+  async getProduct(url: string): Promise<ProductCandidate<"1688">> {
     const parsed = new URL(url);
     if (!/(^|\.)1688\.com$/i.test(parsed.hostname)) throw new Error("UNSUPPORTED_SOURCE_URL");
     const context = await this.getContext(config.headless);
@@ -104,7 +104,7 @@ export class Adapter1688 implements ProductSourceAdapter {
     }
   }
 
-  private async extractProducts(page: Page, intent: SearchIntent, limit: number): Promise<ProductCandidate[]> {
+  private async extractProducts(page: Page, intent: SearchIntent, limit: number): Promise<ProductCandidate<"1688">[]> {
     let cards: Locator | undefined;
     for (const selector of CARD_SELECTORS) {
       const candidate = page.locator(selector);
@@ -112,7 +112,7 @@ export class Adapter1688 implements ProductSourceAdapter {
     }
     if (!cards) return [];
     const seen = new Set<string>();
-    const products: ProductCandidate[] = [];
+    const products: ProductCandidate<"1688">[] = [];
     const count = Math.min(await cards.count(), limit * 3);
     for (let i = 0; i < count && products.length < limit; i += 1) {
       const card = cards.nth(i);

@@ -12,6 +12,8 @@ export const SearchRequestSchema = z.object({
 
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 
+export type ProductSource = "1688" | "pinduoduo";
+
 export interface SearchIntent {
   originalQuery: string;
   chineseQuery: string;
@@ -28,8 +30,8 @@ export interface SearchIntent {
   planner: "ai" | "heuristic";
 }
 
-export interface ProductCandidate {
-  source: "1688";
+export interface ProductCandidate<Source extends ProductSource = ProductSource> {
+  source: Source;
   sourceProductId: string;
   sourceUrl: string;
   titleOriginal: string;
@@ -55,8 +57,10 @@ export interface SearchResult {
   warnings: string[];
 }
 
-export interface ProductSourceAdapter {
-  readonly source: "1688";
-  search(intent: SearchIntent, limit: number): Promise<{ products: ProductCandidate[]; sourceUrl: string; warnings: string[] }>;
-  getProduct(url: string): Promise<ProductCandidate>;
+export interface ProductSourceProvider<Source extends ProductSource = ProductSource> {
+  readonly source: Source;
+  search(intent: SearchIntent, limit: number): Promise<{ products: ProductCandidate<Source>[]; sourceUrl: string; warnings: string[] }>;
+  getProduct(url: string): Promise<ProductCandidate<Source>>;
+  openSession?(): Promise<string>;
+  close?(): Promise<void>;
 }
