@@ -1,6 +1,7 @@
 import { chromium, type BrowserContext, type Locator, type Page } from "playwright";
 import { config } from "./config.js";
 import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "./domain.js";
+import { isSafeMarketplaceRequestUrl, isSupported1688ProductUrl } from "./security/external-url.js";
 
 const CARD_SELECTORS = [
   "[data-offer-id]", ".offer-list-row .offer-item", ".space-offer-card-box", ".search-offer-wrapper",
@@ -31,8 +32,8 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
   }
 
   async getProduct(url: string): Promise<ProductCandidate<"1688">> {
+    if (!isSupported1688ProductUrl(url)) throw new Error("UNSUPPORTED_SOURCE_URL");
     const parsed = new URL(url);
-    if (!/(^|\.)1688\.com$/i.test(parsed.hostname)) throw new Error("UNSUPPORTED_SOURCE_URL");
     const context = await this.getContext(config.headless);
     const page = await context.newPage();
     try {
@@ -93,6 +94,14 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
       locale: "zh-CN",
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
     });
+    await this.context.route("**/*", async (route) => {
+      const allowed = await isSafeMarketplaceRequestUrl(route.request().url());
+      if (allowed) {
+        await route.continue();
+      } else {
+        await route.abort("blockedbyclient");
+      }
+    });
     this.contextHeadless = headless;
     return this.context;
   }
@@ -121,6 +130,7 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
       const href = ownHref?.includes("detail.1688.com/offer/") ? ownHref : await link.getAttribute("href").catch(() => null);
       if (!href) continue;
       const url = href.startsWith("//") ? `https:${href}` : new URL(href, "https://www.1688.com").toString();
+      if (!isSupported1688ProductUrl(url)) continue;
       const id = productIdFrom(url, `item-${i}`);
       if (seen.has(id)) continue;
       const title = await this.firstText(card, ["[title]", ".title", ".offer-title", "img"]);
