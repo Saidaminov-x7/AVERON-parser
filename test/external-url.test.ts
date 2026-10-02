@@ -41,11 +41,39 @@ test("blocks marketplace hostnames resolving to private or link-local addresses"
   );
 });
 
+test("blocks reserved IPv4, private IPv6, and IPv4-mapped IPv6 DNS answers", async () => {
+  const blockedAnswers = [
+    "0.0.0.0",
+    "127.9.8.7",
+    "10.2.3.4",
+    "172.31.255.1",
+    "192.168.2.3",
+    "169.254.169.254",
+    "::1",
+    "fc00::1",
+    "fe80::1",
+    "::ffff:169.254.169.254",
+  ];
+
+  for (const address of blockedAnswers) {
+    assert.equal(
+      await isSafeMarketplaceRequestUrl(
+        "https://detail.1688.com/offer/123.html",
+        async () => [address],
+      ),
+      false,
+      `expected ${address} to be rejected`,
+    );
+  }
+});
+
 test("blocks unsupported protocols, credentials, arbitrary hosts, and nonstandard ports", async () => {
   assert.equal(await isSafeMarketplaceRequestUrl("file:///etc/passwd", publicResolver), false);
   assert.equal(await isSafeMarketplaceRequestUrl("http://detail.1688.com/offer/123.html", publicResolver), false);
   assert.equal(await isSafeMarketplaceRequestUrl("https://user:pass@detail.1688.com/", publicResolver), false);
   assert.equal(await isSafeMarketplaceRequestUrl("https://attacker.example/", publicResolver), false);
+  assert.equal(await isSafeMarketplaceRequestUrl("https://detail.1688.com@127.0.0.1/", publicResolver), false);
+  assert.equal(await isSafeMarketplaceRequestUrl("https://0x7f000001/", publicResolver), false);
   assert.equal(await isSafeMarketplaceRequestUrl("https://detail.1688.com:8443/", publicResolver), false);
 });
 

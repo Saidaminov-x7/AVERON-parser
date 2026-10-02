@@ -2,6 +2,7 @@ import { chromium, type BrowserContext, type Locator, type Page } from "playwrig
 import { config } from "./config.js";
 import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "./domain.js";
 import { isSafeMarketplaceRequestUrl, isSupported1688ProductUrl } from "./security/external-url.js";
+import { MarketplaceEgressProxy } from "./security/marketplace-egress-proxy.js";
 import { BrowserRequestLimiter } from "./browser-request-limiter.js";
 
 const CARD_SELECTORS = [
@@ -23,6 +24,7 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
   readonly source = "1688" as const;
   private context?: BrowserContext;
   private contextHeadless?: boolean;
+  private egressProxy?: MarketplaceEgressProxy;
   private readonly requestLimiter = new BrowserRequestLimiter(2);
 
   async openSession(): Promise<string> {
@@ -79,23 +81,41 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
   }
 
   async close(): Promise<void> {
-    await this.context?.close();
-    this.context = undefined;
+    try {
+      await this.context?.close();
+    } finally {
+      this.context = undefined;
+      await this.closeEgressProxy();
+    }
   }
 
   private async getContext(headless: boolean): Promise<BrowserContext> {
     if (this.context && this.contextHeadless !== headless) {
-      await this.context.close();
+      const currentContext = this.context;
       this.context = undefined;
+      try {
+        await currentContext.close();
+      } finally {
+        await this.closeEgressProxy();
+      }
     }
     if (this.context) return this.context;
-    this.context = await chromium.launchPersistentContext(config.browserProfileDir, {
-      headless,
-      channel: config.browserChannel || undefined,
-      viewport: { width: 1440, height: 1000 },
-      locale: "zh-CN",
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
-    });
+    this.egressProxy = new MarketplaceEgressProxy();
+    const egressProxyUrl = await this.egressProxy.start();
+    try {
+      this.context = await chromium.launchPersistentContext(config.browserProfileDir, {
+        headless,
+        channel: config.browserChannel || undefined,
+        proxy: { server: egressProxyUrl, bypass: "<-loopback>" },
+        args: ["--disable-quic", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
+        viewport: { width: 1440, height: 1000 },
+        locale: "zh-CN",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+      });
+    } catch (error) {
+      await this.closeEgressProxy();
+      throw error;
+    }
     await this.context.route("**/*", async (route) => {
       const allowed = await isSafeMarketplaceRequestUrl(route.request().url());
       if (allowed) {
@@ -106,6 +126,11 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
     });
     this.contextHeadless = headless;
     return this.context;
+  }
+
+  private async closeEgressProxy(): Promise<void> {
+    await this.egressProxy?.close();
+    this.egressProxy = undefined;
   }
 
   private async openRequestPage(headless: boolean): Promise<{ page: Page; close: () => Promise<void> }> {

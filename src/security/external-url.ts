@@ -17,23 +17,37 @@ async function resolveAddresses(hostname: string): Promise<readonly string[]> {
   return records.map(({ address }) => address);
 }
 
-function isPrivateIpv4(address: string): boolean {
-  const octets = address.split(".").map(Number);
-  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
-    return true;
-  }
+function ipv4Value(address: string): number | undefined {
+  if (isIP(address) !== 4) return undefined;
+  return address.split(".").reduce((value, octet) => (value * 256) + Number(octet), 0);
+}
 
-  const [first, second, third] = octets as [number, number, number, number];
-  return first === 0
-    || first === 10
-    || first === 127
-    || first >= 224
-    || (first === 100 && second >= 64 && second <= 127)
-    || (first === 169 && second === 254)
-    || (first === 172 && second >= 16 && second <= 31)
-    || (first === 192 && (second === 0 || second === 168))
-    || (first === 198 && (second === 18 || second === 19 || second === 51))
-    || (first === 203 && second === 0 && third === 113);
+function ipv4InRange(address: string, network: number, prefix: number): boolean {
+  const value = ipv4Value(address);
+  return value !== undefined && (value >>> (32 - prefix)) === (network >>> (32 - prefix));
+}
+
+const nonPublicIpv4Ranges: ReadonlyArray<readonly [number, number]> = [
+  [0x00000000, 8],
+  [0x0a000000, 8],
+  [0x64400000, 10],
+  [0x7f000000, 8],
+  [0xa9fe0000, 16],
+  [0xac100000, 12],
+  [0xc0000000, 24],
+  [0xc0000200, 24],
+  [0xc0586300, 24],
+  [0xc0a80000, 16],
+  [0xc6120000, 15],
+  [0xc6336400, 24],
+  [0xcb007100, 24],
+  [0xe0000000, 4],
+  [0xf0000000, 4],
+];
+
+function isPublicIpv4(address: string): boolean {
+  return ipv4Value(address) !== undefined
+    && !nonPublicIpv4Ranges.some(([network, prefix]) => ipv4InRange(address, network, prefix));
 }
 
 function ipv6Value(address: string): bigint | undefined {
@@ -60,21 +74,24 @@ function ipv6Value(address: string): bigint | undefined {
 
 function isPublicAddress(address: string): boolean {
   const family = isIP(address);
-  if (family === 4) return !isPrivateIpv4(address);
+  if (family === 4) return isPublicIpv4(address);
   if (family !== 6) return false;
 
   const value = ipv6Value(address);
   if (value === undefined || value === 0n || value === 1n) return false;
   const inRange = (base: bigint, bits: bigint) => value >> (128n - bits) === base >> (128n - bits);
   return !(
-    value >> 32n === 0xffffn
+    !inRange(0x2000n << 112n, 3n)
+    || value >> 32n === 0xffffn
     || value >> 32n === 0n
     || inRange(0xfc00n << 112n, 7n)
     || inRange(0xfe80n << 112n, 10n)
-    || inRange(0xff00n << 120n, 8n)
+    || inRange(0x2001n << 112n, 23n)
     || inRange(0x20010db8n << 96n, 32n)
-    || inRange(0x20010010n << 96n, 28n)
     || inRange(0x2002n << 112n, 16n)
+    || inRange(0x3fffn << 112n, 20n)
+    || inRange(0x0064ff9bn << 96n, 96n)
+    || inRange(0x0064ff9b0001n << 80n, 48n)
   );
 }
 
@@ -104,7 +121,7 @@ export async function isSafeMarketplaceRequestUrl(
     return false;
   }
 
-  const hostname = url.hostname.toLowerCase().replace(/\.$/, "").replace(/^\[|\]$/g, "");
+  const hostname = normalizeHostname(url.hostname);
   if (
     url.protocol !== "https:"
     || url.username.length > 0
@@ -115,10 +132,24 @@ export async function isSafeMarketplaceRequestUrl(
     return false;
   }
 
+  return (await resolveSafeMarketplaceAddresses(hostname, resolve)) !== undefined;
+}
+
+function normalizeHostname(value: string): string {
+  return value.toLowerCase().replace(/\.$/, "").replace(/^\[|\]$/g, "");
+}
+
+export async function resolveSafeMarketplaceAddresses(
+  value: string,
+  resolve: AddressResolver = resolveAddresses,
+): Promise<readonly string[] | undefined> {
+  const hostname = normalizeHostname(value);
+  if (!isMarketplaceDomain(hostname)) return undefined;
+
   try {
-    const addresses = isIP(hostname) ? [hostname] : await resolve(hostname);
-    return addresses.length > 0 && addresses.every(isPublicAddress);
+    const addresses = await resolve(hostname);
+    return addresses.length > 0 && addresses.every(isPublicAddress) ? addresses : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
