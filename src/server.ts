@@ -45,7 +45,7 @@ app.get("/api/health", async () => ({
   providers: providerRegistry.getAvailability(),
 }));
 
-app.post("/api/session/open", async (_request, reply) => {
+app.post("/api/session/open", async (request, reply) => {
   try {
     const provider = providerRegistry.getProvider("1688");
     if (!provider.openSession) throw new ProductSourceAccessError("1688", "SOURCE_UNAVAILABLE");
@@ -53,7 +53,11 @@ app.post("/api/session/open", async (_request, reply) => {
   } catch (error) {
     const accessError = sourceAccessError(error, reply);
     if (accessError) return accessError;
-    return reply.code(502).send({ error: "BROWSER_SESSION_FAILED", message: error instanceof Error ? error.message : "Не удалось открыть браузер" });
+    request.log.error({
+      requestId: request.id,
+      errorType: error instanceof Error ? error.name : "unknown",
+    }, "Browser session open failed");
+    return reply.code(502).send({ error: "BROWSER_SESSION_FAILED", message: "Не удалось открыть браузерную сессию." });
   }
 });
 
@@ -66,8 +70,11 @@ app.post("/api/search", async (request, reply) => {
     if (error instanceof Error && error.message === "1688_REQUESTS_LOGIN") return reply.code(409).send({ error: "AUTH_REQUIRED", message: "1688 запросил вход или проверку. Запустите сервис с HEADLESS=false, нажмите «Открыть 1688» и войдите один раз." });
     if (error instanceof Error && error.message === "1688_UNAVAILABLE") return reply.code(502).send({ error: "SOURCE_UNAVAILABLE", message: "1688 не открылся из текущей сети. Проверьте доступ к сайту в обычном Chrome, затем повторите поиск." });
     if (error instanceof Error && error.message === "1688_BUSY") return reply.code(503).send({ error: "SOURCE_BUSY", message: "Парсер занят. Повторите запрос позже." });
-    request.log.error(error);
-    return reply.code(502).send({ error: "SEARCH_FAILED", message: error instanceof Error ? error.message : "Поиск не выполнен" });
+    request.log.error({
+      requestId: request.id,
+      errorType: error instanceof Error ? error.name : "unknown",
+    }, "Product search failed");
+    return reply.code(502).send({ error: "SEARCH_FAILED", message: "Не удалось выполнить поиск. Повторите попытку позже." });
   }
 });
 
