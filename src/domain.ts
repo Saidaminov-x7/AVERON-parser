@@ -35,10 +35,18 @@ export interface ProductCandidate<Source extends ProductSource = ProductSource> 
   sourceProductId: string;
   sourceUrl: string;
   titleOriginal: string;
+  sourceDescription?: string;
   titleRu?: string;
   imageUrl?: string;
+  imageUrls?: string[];
   priceMinCny?: number;
   priceMaxCny?: number;
+  sourceAttributes?: Record<string, string | string[]>;
+  variants?: Array<{ sourceVariantId?: string; color?: string; size?: string; sourcePriceCny?: number }>;
+  sizes?: string[];
+  colors?: string[];
+  categoryHint?: string;
+  shippingMetadata?: Record<string, unknown>;
   sellerName?: string;
   soldText?: string;
   location?: string;
