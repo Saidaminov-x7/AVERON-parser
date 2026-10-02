@@ -65,6 +65,7 @@ app.post("/api/search", async (request, reply) => {
     if (error instanceof ZodError) return reply.code(400).send({ error: "INVALID_REQUEST", message: error.issues[0]?.message, issues: error.issues });
     if (error instanceof Error && error.message === "1688_REQUESTS_LOGIN") return reply.code(409).send({ error: "AUTH_REQUIRED", message: "1688 запросил вход или проверку. Запустите сервис с HEADLESS=false, нажмите «Открыть 1688» и войдите один раз." });
     if (error instanceof Error && error.message === "1688_UNAVAILABLE") return reply.code(502).send({ error: "SOURCE_UNAVAILABLE", message: "1688 не открылся из текущей сети. Проверьте доступ к сайту в обычном Chrome, затем повторите поиск." });
+    if (error instanceof Error && error.message === "1688_BUSY") return reply.code(503).send({ error: "SOURCE_BUSY", message: "Парсер занят. Повторите запрос позже." });
     request.log.error(error);
     return reply.code(502).send({ error: "SEARCH_FAILED", message: error instanceof Error ? error.message : "Поиск не выполнен" });
   }
@@ -85,6 +86,7 @@ app.post("/api/product", async (request, reply) => {
     if (error instanceof Error && error.message === "UNSUPPORTED_SOURCE_URL") return reply.code(400).send({ error: "UNSUPPORTED_SOURCE", message: "Сейчас поддерживаются ссылки 1688.com" });
     if (error instanceof Error && error.message === "1688_REQUESTS_LOGIN") return reply.code(409).send({ error: "AUTH_REQUIRED", message: "1688 запросил вход. Установите HEADLESS=false, откройте сессию и войдите вручную." });
     if (error instanceof Error && error.message === "1688_UNAVAILABLE") return reply.code(502).send({ error: "SOURCE_UNAVAILABLE", message: "1688 недоступен из текущей сети." });
+    if (error instanceof Error && error.message === "1688_BUSY") return reply.code(503).send({ error: "SOURCE_BUSY", message: "Парсер занят. Повторите запрос позже." });
     const code = error instanceof Error && /^[A-Z0-9_]{1,64}$/.test(error.message) ? error.message : "IMPORT_FAILED";
     const status = code === "PARSER_IMPORT_NOT_CONFIGURED" ? 503 : code === "FEATURE_DISABLED" ? 403 : 502;
     return reply.code(status).send({ error: code, message: "Карточка не передана в очередь проверки." });

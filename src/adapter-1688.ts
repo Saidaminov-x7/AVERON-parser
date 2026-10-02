@@ -2,6 +2,7 @@ import { chromium, type BrowserContext, type Locator, type Page } from "playwrig
 import { config } from "./config.js";
 import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "./domain.js";
 import { isSafeMarketplaceRequestUrl, isSupported1688ProductUrl } from "./security/external-url.js";
+import { BrowserRequestLimiter } from "./browser-request-limiter.js";
 
 const CARD_SELECTORS = [
   "[data-offer-id]", ".offer-list-row .offer-item", ".space-offer-card-box", ".search-offer-wrapper",
@@ -22,6 +23,7 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
   readonly source = "1688" as const;
   private context?: BrowserContext;
   private contextHeadless?: boolean;
+  private readonly requestLimiter = new BrowserRequestLimiter(2);
 
   async openSession(): Promise<string> {
     const context = await this.getContext(false);
@@ -34,8 +36,8 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
   async getProduct(url: string): Promise<ProductCandidate<"1688">> {
     if (!isSupported1688ProductUrl(url)) throw new Error("UNSUPPORTED_SOURCE_URL");
     const parsed = new URL(url);
-    const context = await this.getContext(config.headless);
-    const page = await context.newPage();
+    const requestPage = await this.openRequestPage(config.headless);
+    const { page } = requestPage;
     try {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: config.searchTimeoutMs });
       await page.waitForTimeout(2000);
@@ -48,15 +50,15 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
       const priceText = await meta("meta[property='product:price:amount']") ?? await this.firstText(page.locator("body"), ["[class*='price']", "[class*='Price']"]);
       const id = productIdFrom(page.url(), parsed.pathname.replace(/\D/g, "") || "unknown");
       return { source: "1688", sourceProductId: id, sourceUrl: page.url(), titleOriginal: title.trim(), imageUrl: image ?? undefined, priceMinCny: numberFrom(priceText), relevanceScore: 100, warnings: numberFrom(priceText) === undefined ? ["Проверьте цену вручную"] : [], status: "PENDING_REVIEW", collectedAt: new Date().toISOString() };
-    } finally { await page.close(); }
+    } finally { await requestPage.close(); }
   }
 
   async search(intent: SearchIntent, limit: number) {
     const params = new URLSearchParams({ keywords: intent.chineseQuery });
     const sourceUrl = `https://s.1688.com/selloffer/offer_search.htm?${params.toString()}`;
     const warnings: string[] = [];
-    const context = await this.getContext(config.headless);
-    const page = await context.newPage();
+    const requestPage = await this.openRequestPage(config.headless);
+    const { page } = requestPage;
     try {
       await page.goto(sourceUrl, { waitUntil: "domcontentloaded", timeout: config.searchTimeoutMs });
       await page.waitForTimeout(2500);
@@ -72,7 +74,7 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
       if (!products.length) warnings.push("1688 не вернул карточки. Возможно, нужна авторизация или обновились селекторы сайта.");
       return { products, sourceUrl: page.url(), warnings };
     } finally {
-      await page.close();
+      await requestPage.close();
     }
   }
 
@@ -104,6 +106,27 @@ export class Adapter1688 implements ProductSourceProvider<"1688"> {
     });
     this.contextHeadless = headless;
     return this.context;
+  }
+
+  private async openRequestPage(headless: boolean): Promise<{ page: Page; close: () => Promise<void> }> {
+    const release = this.requestLimiter.acquire();
+    if (!release) throw new Error("1688_BUSY");
+    try {
+      const page = await (await this.getContext(headless)).newPage();
+      return {
+        page,
+        close: async () => {
+          try {
+            await page.close();
+          } finally {
+            release();
+          }
+        },
+      };
+    } catch (error) {
+      release();
+      throw error;
+    }
   }
 
   private async autoScroll(page: Page): Promise<void> {
