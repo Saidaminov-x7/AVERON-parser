@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "./domain.js";
+import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "../../domain.js";
 
 const sourceUrlSchema = z.string().url().max(2048).refine((value) => {
   const url = new URL(value);

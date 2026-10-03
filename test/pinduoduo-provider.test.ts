@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PinduoduoProvider, PinduoduoProviderError, type PinduoduoTransport } from "../src/adapter-pinduoduo.js";
+import { PinduoduoProvider, PinduoduoProviderError, type PinduoduoTransport } from "../src/providers/pinduoduo/index.js";
 import { toParserImportProductV1 } from "../src/backend-import.js";
 import type { SearchIntent } from "../src/domain.js";
 

@@ -1,9 +1,9 @@
 import { chromium, type BrowserContext, type Locator, type Page } from "playwright";
-import { config } from "./config.js";
-import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "./domain.js";
-import { isSafeMarketplaceRequestUrl, isSupported1688ProductUrl } from "./security/external-url.js";
-import { MarketplaceEgressProxy } from "./security/marketplace-egress-proxy.js";
-import { BrowserRequestLimiter } from "./browser-request-limiter.js";
+import { config } from "../../config.js";
+import type { ProductCandidate, ProductSourceProvider, SearchIntent } from "../../domain.js";
+import { isSafeMarketplaceRequestUrl, isSupported1688ProductUrl } from "../../security/external-url.js";
+import { MarketplaceEgressProxy } from "../../security/marketplace-egress-proxy.js";
+import { BrowserRequestLimiter } from "../../browser-request-limiter.js";
 
 const CARD_SELECTORS = [
   "[data-offer-id]", ".offer-list-row .offer-item", ".space-offer-card-box", ".search-offer-wrapper",

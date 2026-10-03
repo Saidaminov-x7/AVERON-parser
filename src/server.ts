@@ -4,7 +4,7 @@ import path from "node:path";
 import { ZodError } from "zod";
 import { config } from "./config.js";
 import { SearchRequestSchema } from "./domain.js";
-import { Adapter1688 } from "./adapter-1688.js";
+import { Adapter1688 } from "./providers/1688/index.js";
 import { getSavedSearchResult, SearchService } from "./search-service.js";
 import { ProductSourceAccessError, ProductSourceProviderRegistry } from "./product-source-provider.js";
 import { ParserBackendImportClient } from "./backend-import.js";
