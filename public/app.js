@@ -35,7 +35,31 @@ document.querySelector("#open-session").addEventListener("click", async () => {
 });
 
 function card(product) {
-  return `<article class="card"><div class="image">${product.imageUrl ? `<img loading="lazy" src="${escapeAttr(product.imageUrl)}" alt="" referrerpolicy="no-referrer">` : ""}</div><div class="card-body"><h3>${escapeHtml(product.titleOriginal)}</h3><div class="price">${product.priceMinCny == null ? "Цена не указана" : `¥ ${product.priceMinCny}`}</div><div class="meta"><span>1688</span><span>Совпадение ${product.relevanceScore}%</span></div><a href="${escapeAttr(product.sourceUrl)}" target="_blank" rel="noreferrer">Открыть товар</a></div></article>`;
+  const imageUrl = safeHttpUrl(product.imageUrl);
+  const sourceUrl = safeHttpUrl(product.sourceUrl);
+  const price = typeof product.priceMinCny === "number" && Number.isFinite(product.priceMinCny)
+    ? `¥ ${product.priceMinCny}`
+    : "Цена не указана";
+  const relevanceScore = typeof product.relevanceScore === "number" && Number.isFinite(product.relevanceScore)
+    ? product.relevanceScore
+    : "—";
+  const image = imageUrl
+    ? `<img loading="lazy" src="${imageUrl}" alt="" referrerpolicy="no-referrer">`
+    : "";
+  const link = sourceUrl
+    ? `<a href="${sourceUrl}" target="_blank" rel="noreferrer">Открыть товар</a>`
+    : "<span>Ссылка недоступна</span>";
+  return `<article class="card"><div class="image">${image}</div><div class="card-body"><h3>${escapeHtml(product.titleOriginal)}</h3><div class="price">${price}</div><div class="meta"><span>1688</span><span>Совпадение ${relevanceScore}%</span></div>${link}</div></article>`;
 }
 function escapeHtml(value) { const node = document.createElement("div"); node.textContent = value ?? ""; return node.innerHTML; }
-function escapeAttr(value) { return escapeHtml(value).replaceAll('"', "&quot;"); }
+function safeHttpUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  try {
+    const url = new URL(value, window.location.origin);
+    return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password
+      ? escapeHtml(url.href).replaceAll('"', "&quot;")
+      : "";
+  } catch {
+    return "";
+  }
+}
