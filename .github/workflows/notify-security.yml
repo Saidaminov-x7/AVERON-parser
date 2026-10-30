@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   dispatch:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Mark exact source SHA pending cross-repository verification
@@ -27,8 +27,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AVERON_SECURITY_DISPATCH_TOKEN }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          SOURCE_REPOSITORY: AVERON-parser
         run: |
-          gh api repos/Saidaminov-x7/AVERON-security-tests/dispatches -f event_type=averon-application-changed -f client_payload[repository]=AVERON-parser -f client_payload[sha]="$SOURCE_SHA"
+          gh api repos/Saidaminov-x7/AVERON-security-tests/dispatches -f event_type=averon-application-changed -f client_payload[repository]="$SOURCE_REPOSITORY" -f client_payload[sha]="$SOURCE_SHA"
       - name: Mark dispatch failure
         if: failure()
         env:
