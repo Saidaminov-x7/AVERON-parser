@@ -48,7 +48,7 @@ test("dials the vetted DNS answer directly and resolves only once per browser co
   }
 });
 
-test("rejects a public-to-public-to-private redirect chain at the private connection", async () => {
+test("rejects a redirect to a private or metadata destination at its next CONNECT", async () => {
   let resolutionCount = 0;
   const dialed: string[] = [];
   const proxy = new MarketplaceEgressProxy({
@@ -66,6 +66,7 @@ test("rejects a public-to-public-to-private redirect chain at the private connec
   const proxyUrl = await proxy.start();
 
   try {
+    // Each HTTPS redirect causes Chromium to open a new CONNECT for the next host.
     for (let hop = 0; hop < 2; hop += 1) {
       assert.match(
         await connectThroughProxy(proxyUrl, "detail.1688.com:443"),
@@ -78,6 +79,37 @@ test("rejects a public-to-public-to-private redirect chain at the private connec
     );
     assert.equal(resolutionCount, 3);
     assert.deepEqual(dialed, ["93.184.216.34", "93.184.216.34"]);
+  } finally {
+    await proxy.close();
+  }
+});
+
+test("fails closed when DNS changes from a public answer to an IPv4-mapped private address", async () => {
+  let resolutionCount = 0;
+  const dialed: string[] = [];
+  const proxy = new MarketplaceEgressProxy({
+    resolve: async () => {
+      resolutionCount += 1;
+      return resolutionCount === 1 ? ["93.184.216.34"] : ["::ffff:169.254.169.254"];
+    },
+    connectToAddress: async (address) => {
+      dialed.push(address);
+      return new PassThrough();
+    },
+  });
+  const proxyUrl = await proxy.start();
+
+  try {
+    assert.match(
+      await connectThroughProxy(proxyUrl, "detail.1688.com:443"),
+      /^HTTP\/1\.1 200 Connection Established/,
+    );
+    assert.match(
+      await connectThroughProxy(proxyUrl, "detail.1688.com:443"),
+      /^HTTP\/1\.1 403 Forbidden/,
+    );
+    assert.equal(resolutionCount, 2);
+    assert.deepEqual(dialed, ["93.184.216.34"]);
   } finally {
     await proxy.close();
   }
