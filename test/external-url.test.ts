@@ -44,6 +44,9 @@ test("blocks marketplace hostnames resolving to private or link-local addresses"
 test("blocks reserved IPv4, private IPv6, and IPv4-mapped IPv6 DNS answers", async () => {
   const blockedAnswers = [
     "0.0.0.0",
+    "192.0.0.8",
+    "198.18.0.1",
+    "198.19.255.254",
     "127.9.8.7",
     "10.2.3.4",
     "172.31.255.1",
@@ -53,6 +56,8 @@ test("blocks reserved IPv4, private IPv6, and IPv4-mapped IPv6 DNS answers", asy
     "fc00::1",
     "fe80::1",
     "::ffff:169.254.169.254",
+    "::ffff:192.168.1.10",
+    "0:0:0:0:0:ffff:0a00:0001",
   ];
 
   for (const address of blockedAnswers) {
